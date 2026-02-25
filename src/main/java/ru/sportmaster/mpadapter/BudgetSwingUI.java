@@ -7,7 +7,6 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -174,9 +173,8 @@ public class BudgetSwingUI extends JFrame {
         storyDatePicker.setDate(java.sql.Date.valueOf(LocalDate.now()));
         storyDatePicker.setFormats("yyyy-MM-dd");
 
-        // Верхняя панель с балансом
+        // Верхняя панель - пустая или можно добавить заголовок
         JPanel topPanel = new JPanel(new FlowLayout());
-        topPanel.add(balanceLabel);
 
         // Добавляем кнопку удаления в последнюю колонку
         table.getColumn("Action").setCellRenderer(new ButtonRenderer());
@@ -249,12 +247,22 @@ public class BudgetSwingUI extends JFrame {
         add(topPanel, BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
         
-        // Создаем панель для формы с фиксированным размером
-        JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        southPanel.setPreferredSize(new Dimension(800, 210)); // Увеличили под новую высоту формы
-        southPanel.setMaximumSize(new Dimension(800, 210));
-        southPanel.setMinimumSize(new Dimension(800, 210));
-        southPanel.add(formPanel);
+        // Создаем панель для баланса и формы
+        JPanel southPanel = new JPanel(new BorderLayout());
+        
+        // Панель баланса над формой
+        JPanel balancePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        balancePanel.add(balanceLabel);
+        southPanel.add(balancePanel, BorderLayout.NORTH);
+        
+        // Форма добавления записи
+        JPanel formWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        formWrapper.setPreferredSize(new Dimension(800, 210));
+        formWrapper.setMaximumSize(new Dimension(800, 210));
+        formWrapper.setMinimumSize(new Dimension(800, 210));
+        formWrapper.add(formPanel);
+        southPanel.add(formWrapper, BorderLayout.CENTER);
+        
         add(southPanel, BorderLayout.SOUTH);
 
         setSize(800, 600);
