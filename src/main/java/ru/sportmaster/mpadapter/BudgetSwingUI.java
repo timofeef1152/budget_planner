@@ -35,7 +35,6 @@ public class BudgetSwingUI extends JFrame {
     private JLabel balanceLabel;
     private JTextField amountField;
     private JTextField commentField;
-    private JXDatePicker balanceDatePicker;
     private JXDatePicker storyDatePicker;
     private JTable table;
 
@@ -104,19 +103,9 @@ public class BudgetSwingUI extends JFrame {
         storyDatePicker.setDate(java.sql.Date.valueOf(LocalDate.now()));
         storyDatePicker.setFormats("yyyy-MM-dd");
 
-        // Календарь для расчета баланса
-        balanceDatePicker = new JXDatePicker();
-        balanceDatePicker.setDate(java.sql.Date.valueOf(LocalDate.now()));
-        balanceDatePicker.setFormats("yyyy-MM-dd");
-
         // Верхняя панель с балансом
         JPanel topPanel = new JPanel(new FlowLayout());
         topPanel.add(balanceLabel);
-        topPanel.add(balanceDatePicker);
-
-        JButton calculateButton = new JButton("Calculate Balance");
-        calculateButton.addActionListener(e -> calculateBalance());
-        topPanel.add(calculateButton);
 
         // Добавляем кнопку удаления в последнюю колонку
         table.getColumn("Action").setCellRenderer(new ButtonRenderer());
@@ -159,6 +148,13 @@ public class BudgetSwingUI extends JFrame {
                 super.windowClosing(e);
             }
         });
+        
+        // Добавляем обработчик выбора строки для автоматического расчета баланса
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
+                calculateBalanceForSelectedRow();
+            }
+        });
     }
 
     private void addStory() {
@@ -186,18 +182,23 @@ public class BudgetSwingUI extends JFrame {
         }
     }
 
-    private void calculateBalance() {
+    private void calculateBalanceForSelectedRow() {
         try {
-            Date balanceDate = balanceDatePicker.getDate();
-            LocalDate date = balanceDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            BigDecimal balanceForDate = calcBudgetForDateUseCase.execute(currentPlannerId, date);
-            balanceLabel.setText("Balance on " + date + ": " + balanceForDate);
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow != -1) {
+                Object dateValue = tableModel.getValueAt(selectedRow, 0);
+                if (dateValue != null) {
+                    LocalDate date = LocalDate.parse(dateValue.toString());
+                    BigDecimal balanceForDate = calcBudgetForDateUseCase.execute(currentPlannerId, date);
+                    balanceLabel.setText("Balance on " + date + ": " + balanceForDate);
+                }
+            }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                                           "Error: " + e.getMessage(),
                                           "Error",
                                           JOptionPane.ERROR_MESSAGE);
-            log.error("Error while calculating balance for date", e);
+            log.error("Error while calculating balance for selected row", e);
         }
     }
 
@@ -214,6 +215,20 @@ public class BudgetSwingUI extends JFrame {
 
         // Перерисовываем таблицу для обновления цветов
         table.repaint();
+        
+        // Рассчитываем баланс на сегодняшнюю дату при запуске
+        calculateBalanceForToday();
+    }
+    
+    private void calculateBalanceForToday() {
+        try {
+            LocalDate today = LocalDate.now();
+            BigDecimal balanceForToday = calcBudgetForDateUseCase.execute(currentPlannerId, today);
+            balanceLabel.setText("Balance on " + today + ": " + balanceForToday);
+        } catch (Exception e) {
+            balanceLabel.setText("Balance: Error calculating");
+            log.error("Error while calculating balance for today", e);
+        }
     }
 
     // Кастомный рендерер для окрашивания строк
