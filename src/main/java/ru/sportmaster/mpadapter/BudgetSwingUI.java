@@ -3,8 +3,14 @@ package ru.sportmaster.mpadapter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.math.BigDecimal;
@@ -34,7 +40,7 @@ public class BudgetSwingUI extends JFrame {
     private DefaultTableModel tableModel;
     private JLabel balanceLabel;
     private JTextField amountField;
-    private JTextField commentField;
+    private JTextArea commentField;
     private JXDatePicker storyDatePicker;
     private JTable table;
 
@@ -73,14 +79,49 @@ public class BudgetSwingUI extends JFrame {
 
             @Override
             public void setValueAt(Object aValue, int row, int column) {
-                super.setValueAt(aValue, row, column);
                 String value = aValue.toString();
+                
                 if (column == 0) {
-                    updateStoryDateUseCase.execute(currentPlannerId, value, row);
+                    try {
+                        updateStoryDateUseCase.execute(currentPlannerId, value, row);
+                        super.setValueAt(aValue, row, column);
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(BudgetSwingUI.this,
+                                "Invalid date format. Please use YYYY-MM-DD format.",
+                                "Validation Error",
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
                 } else if (column == 1) {
-                    updateStoryAmountUseCase.execute(currentPlannerId, value, row);
+                    // Проверяем, что значение - это число
+                    try {
+                        new BigDecimal(value);
+                        updateStoryAmountUseCase.execute(currentPlannerId, value, row);
+                        super.setValueAt(aValue, row, column);
+                    } catch (NumberFormatException e) {
+                        JOptionPane.showMessageDialog(BudgetSwingUI.this,
+                                "Invalid amount format. Please enter a valid number.",
+                                "Validation Error",
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(BudgetSwingUI.this,
+                                "Error updating amount: " + e.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
                 } else if (column == 2) {
-                    updateStoryCommentUseCase.execute(currentPlannerId, value, row);
+                    try {
+                        updateStoryCommentUseCase.execute(currentPlannerId, value, row);
+                        super.setValueAt(aValue, row, column);
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(BudgetSwingUI.this,
+                                "Error updating comment: " + e.getMessage(),
+                                "Error",
+                                JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
                 }
                 // После изменения данных обновляем цвета строк
                 table.repaint();
@@ -96,7 +137,37 @@ public class BudgetSwingUI extends JFrame {
 
         balanceLabel = new JLabel("Balance: 0.00");
         amountField = new JTextField();
-        commentField = new JTextField();
+        commentField = new JTextArea(5, 20); // Увеличили до 5 строк
+        commentField.setLineWrap(true);
+        commentField.setWrapStyleWord(true);
+        
+        // Ограничиваем поле amount только для чисел
+        amountField.addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                // Разрешаем только цифры и минус
+                if (!(Character.isDigit(c) || c == '-')) {
+                    e.consume(); // Блокируем ввод других символов
+                }
+                // Разрешаем минус только в начале и только один раз
+                if (c == '-' && (amountField.getCaretPosition() != 0 || amountField.getText().contains("-"))) {
+                    e.consume();
+                }
+            }
+            
+            public void keyPressed(KeyEvent e) {
+                // Разрешаем служебные клавиши
+                if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE || 
+                    e.getKeyCode() == KeyEvent.VK_DELETE || 
+                    e.getKeyCode() == KeyEvent.VK_LEFT || 
+                    e.getKeyCode() == KeyEvent.VK_RIGHT || 
+                    e.getKeyCode() == KeyEvent.VK_HOME || 
+                    e.getKeyCode() == KeyEvent.VK_END ||
+                    e.isControlDown()) {
+                    return; // Разрешаем эти клавиши
+                }
+            }
+        });
 
         // Календарь для истории
         storyDatePicker = new JXDatePicker();
@@ -112,29 +183,79 @@ public class BudgetSwingUI extends JFrame {
         table.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox()));
 
         // Панель добавления новой записи
-        JPanel formPanel = new JPanel(new GridLayout(0, 2, 5, 5));
+        JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBorder(BorderFactory.createTitledBorder("Add New Story"));
-
-        formPanel.add(new JLabel("Date (YYYY-MM-DD):"));
-        formPanel.add(storyDatePicker);
-
-        formPanel.add(new JLabel("Amount:"));
-        formPanel.add(amountField);
-
-        formPanel.add(new JLabel("Comment:"));
-        formPanel.add(commentField);
-
+        formPanel.setPreferredSize(new Dimension(600, 180)); // Увеличили высоту для большего комментария
+        formPanel.setMinimumSize(new Dimension(600, 180));
+        formPanel.setMaximumSize(new Dimension(600, 180));
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+        
+        // Дата
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        formPanel.add(new JLabel("Date (YYYY-MM-DD):"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 0.5;
+        formPanel.add(storyDatePicker, gbc);
+        
+        // Сумма
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        formPanel.add(new JLabel("Amount:"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 0.5;
+        formPanel.add(amountField, gbc);
+        
+        // Комментарий
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.weightx = 0;
+        formPanel.add(new JLabel("Comment:"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.BOTH; // Разрешаем растягивание по вертикали
+        gbc.weightx = 0.5;
+        gbc.weighty = 0.3; // Небольшой вес для вертикального растягивания
+        formPanel.add(commentField, gbc); // Добавляем без JScrollPane
+        
+        // Кнопка добавления
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.weightx = 0;
+        
         JButton addStory = new JButton("Add story record");
         addStory.addActionListener(e -> {
             addStory();
             refreshData();
         });
-        formPanel.add(addStory);
+        formPanel.add(addStory, gbc);
 
         // Сборка интерфейса
         add(topPanel, BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
-        add(formPanel, BorderLayout.SOUTH);
+        
+        // Создаем панель для формы с фиксированным размером
+        JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        southPanel.setPreferredSize(new Dimension(800, 210)); // Увеличили под новую высоту формы
+        southPanel.setMaximumSize(new Dimension(800, 210));
+        southPanel.setMinimumSize(new Dimension(800, 210));
+        southPanel.add(formPanel);
+        add(southPanel, BorderLayout.SOUTH);
 
         setSize(800, 600);
         setLocationRelativeTo(null);
@@ -155,14 +276,64 @@ public class BudgetSwingUI extends JFrame {
                 calculateBalanceForSelectedRow();
             }
         });
+        
+        // Добавляем поддержку клавиши Enter для быстрого добавления записи
+        amountField.addActionListener(e -> {
+            addStory();
+            refreshData();
+        });
+        
+        // Для JTextArea используем KeyListener для Enter
+        commentField.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER && e.isControlDown()) {
+                    // Ctrl+Enter для добавления записи
+                    addStory();
+                    refreshData();
+                }
+            }
+        });
     }
 
     private void addStory() {
         try {
+            // Валидация полей
+            if (amountField.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "Please enter an amount",
+                        "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+                amountField.requestFocus();
+                return;
+            }
+            
             Date storyDate = storyDatePicker.getDate();
+            if (storyDate == null) {
+                JOptionPane.showMessageDialog(this,
+                        "Please select a date",
+                        "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+                storyDatePicker.requestFocus();
+                return;
+            }
+            
             LocalDate date = storyDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            BigDecimal signedAmount = new BigDecimal(amountField.getText());
-            String comment = commentField.getText();
+            BigDecimal signedAmount;
+            
+            try {
+                signedAmount = new BigDecimal(amountField.getText().trim());
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this,
+                        "Invalid amount format. Please enter a valid number.",
+                        "Validation Error",
+                        JOptionPane.WARNING_MESSAGE);
+                amountField.requestFocus();
+                amountField.selectAll();
+                return;
+            }
+            
+            String comment = commentField.getText().trim();
+            // Оставляем комментарий пустым, если пользователь ничего не ввел
 
             Story story = new Story(date,
                                     new BudgetChange(signedAmount),
@@ -170,9 +341,11 @@ public class BudgetSwingUI extends JFrame {
 
             addStoryUseCase.execute(currentPlannerId, story);
 
-            // Очистка полей
+            // Очистка полей и фокус на поле суммы
             amountField.setText("");
             commentField.setText("");
+            amountField.requestFocus();
+                    
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                                           "Error: " + e.getMessage(),
