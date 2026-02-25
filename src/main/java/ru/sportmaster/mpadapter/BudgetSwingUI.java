@@ -226,6 +226,8 @@ public class BudgetSwingUI extends JFrame {
 
             // Получаем значение из второго столбца (Amount)
             Object amountValue = table.getModel().getValueAt(row, 1);
+            // Получаем значение из первого столбца (Date)
+            Object dateValue = table.getModel().getValueAt(row, 0);
 
             try {
                 if (amountValue != null) {
@@ -251,9 +253,42 @@ public class BudgetSwingUI extends JFrame {
                 } else {
                     c.setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
                 }
+
+                // Проверяем, является ли дата сегодняшней
+                if (dateValue != null) {
+                    try {
+                        LocalDate storyDate = LocalDate.parse(dateValue.toString());
+                        LocalDate today = LocalDate.now();
+                        
+                        if (storyDate.equals(today)) {
+                            // Выделяем сегодняшнюю дату тонкой рамкой
+                            if (c instanceof JComponent) {
+                                ((JComponent) c).setBorder(BorderFactory.createLineBorder(new Color(0, 100, 200), 1));
+                            }
+                        } else {
+                            // Убираем рамку для других дат
+                            if (c instanceof JComponent) {
+                                ((JComponent) c).setBorder(null);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Если не удалось распарсить дату, убираем рамку
+                        if (c instanceof JComponent) {
+                            ((JComponent) c).setBorder(null);
+                        }
+                    }
+                } else {
+                    // Если дата отсутствует, убираем рамку
+                    if (c instanceof JComponent) {
+                        ((JComponent) c).setBorder(null);
+                    }
+                }
             } catch (NumberFormatException e) {
                 // Если не удалось преобразовать в число, оставляем стандартный цвет
                 c.setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
+                if (c instanceof JComponent) {
+                    ((JComponent) c).setBorder(null);
+                }
             }
 
             return c;
